@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>不动产DCF估值模型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .container {
+      text-align: center;
+      animation: fadeInUp 0.8s ease-out;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .icon {
+      font-size: 64px; margin-bottom: 20px;
+      filter: drop-shadow(0 4px 20px rgba(59,130,246,.5));
+    }
+    h1 {
+      color: #e2e8f0; font-size: 28px; font-weight: 700;
+      margin-bottom: 10px; letter-spacing: 2px;
+    }
+    .subtitle {
+      color: #64748b; font-size: 14px; margin-bottom: 36px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 16px 48px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white; text-decoration: none;
+      border-radius: 12px; font-size: 17px; font-weight: 600;
+      transition: all .25s ease; box-shadow: 0 4px 20px rgba(59,130,246,.35);
+      cursor: pointer;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(59,130,246,.5);
+    }
+    .features {
+      margin-top: 40px;
+      color: #475569; font-size: 12.5px;
+      line-height: 2.2;
+    }
+    .dot { color: #3b82f6; margin-right: 4px; }
+    .loading {
+      margin-top: 20px; color: #475569; font-size: 12px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%,100%{opacity:.5} 50%{opacity:1}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🏢</div>
+    <h1>不动产 DCF 估值模型</h1>
+    <p class="subtitle">Real Estate Discounted Cash Flow Valuation Platform</p>
+
+    <a class="btn" href="real_estate_dcf.html">立即打开 →</a>
+
+    <div class="features">
+      <span class="dot">✦</span> 现金流折现分析（DCF）<br/>
+      <span class="dot">✦</span> 增值税及附加 / 房产税双轨制<br/>
+      <span class="dot">✦</span> IRR / Cap Rate / 敏感性分析<br/>
+      <span class="dot">✦</span> 租赁周期阶梯式调租
+    </div>
+
+    <p class="loading">正在加载模型引擎...</p>
+  </div>
+
+  <script>
+    // 自动跳转：3秒后如果用户没点击则自动跳转
+    setTimeout(function() {
+      window.location.href = 'real_estate_dcf.html';
+    }, 3000);
+  </script>
+</body>
+</html>
