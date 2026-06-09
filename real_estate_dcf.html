@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>不动产 DCF 估值模型平台</title>
+  <script src="chart.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --card: #1e2130;
+      --border: #2a2f45;
+      --accent: #4f8ef7;
+      --accent2: #34d399;
+      --accent3: #f59e0b;
+      --accent4: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --input-bg: #252a3d;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1a1d27 0%, #12162a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 36px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 21px; font-weight: 700; letter-spacing: .4px; }
+    header h1 span { color: var(--accent); }
+    .badge {
+      background: rgba(79,142,247,.14); color: var(--accent);
+      border: 1px solid rgba(79,142,247,.28);
+      border-radius: 20px; padding: 4px 14px; font-size: 12px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: calc(100vh - 61px);
+    }
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      overflow-y: auto;
+      max-height: calc(100vh - 61px);
+      position: sticky; top: 0;
+    }
+    .sidebar-heading {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 18px;
+    }
+    .param-group { margin-bottom: 18px; }
+    .pg-title {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700;
+      margin-bottom: 10px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pg-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .field { margin-bottom: 9px; }
+    .field label {
+      display: flex; justify-content: space-between;
+      font-size: 11.5px; color: var(--text-muted); margin-bottom: 5px;
+    }
+    .field label .lv { color: var(--accent3); font-weight: 600; }
+    .field input[type="number"],
+    .field select {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 7px 11px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .18s;
+    }
+    .field input[type="number"]:focus,
+    .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.11);
+    }
+    .field input[type="range"] {
+      width: 100%; accent-color: var(--accent);
+      background: transparent; border: none;
+      padding: 5px 0; cursor: pointer;
+    }
+    .calc-btn {
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg, #4f8ef7, #2f5ec4);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: opacity .18s, transform .1s;
+      letter-spacing: .3px;
+    }
+    .calc-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .calc-btn:active { transform: translateY(0); }
+    /* ── Main ── */
+    .main { padding: 18px 20px; overflow-y: auto; }
+    /* KPI */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px; margin-bottom: 16px;
+    }
+    .kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 13px 12px 10px;
+      position: relative; overflow: hidden;
+    }
+    .kpi::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .kpi.c1::before { background: #4f8ef7; }
+    .kpi.c2::before { background: #34d399; }
+    .kpi.c3::before { background: #f59e0b; }
+    .kpi.c4::before { background: #22d3ee; }
+    .kpi.c5::before { background: #a78bfa; }
+    .kpi.c6::before { background: #ef4444; }
+    .kpi-lbl { font-size: 10.5px; color: var(--text-muted); margin-bottom: 7px; }
+    .kpi-val { font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
+    .kpi.c1 .kpi-val { color: #4f8ef7; }
+    .kpi.c2 .kpi-val { color: #34d399; }
+    .kpi.c3 .kpi-val { color: #f59e0b; }
+    .kpi.c4 .kpi-val { color: #22d3ee; }
+    .kpi.c5 .kpi-val { color: #a78bfa; }
+    .kpi.c6 .kpi-val { color: #ef4444; }
+    .kpi-sub { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+    /* Charts */
+    .charts-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 16px;
+    }
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px;
+    }
+    .chart-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+    .chart-wrap { position: relative; height: 240px; }
+    /* Table */
+    .tcard {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+    }
+    .tcard h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .tscroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    thead th {
+      background: rgba(79,142,247,.09);
+      color: var(--text-muted); font-weight: 600;
+      padding: 6px 8px; text-align: right;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    thead th:first-child { text-align: left; }
+    tbody td {
+      padding: 6px 8px; text-align: right;
+      border-bottom: 1px solid rgba(255,255,255,.035); white-space: nowrap;
+    }
+    tbody td:first-child { text-align: left; color: var(--text-muted); font-weight: 500; }
+    tbody tr:hover { background: rgba(255,255,255,.025); }
+    tbody tr.total-row td {
+      background: rgba(79,142,247,.07);
+      font-weight: 700; color: var(--accent);
+      border-top: 1px solid rgba(79,142,247,.3);
+    }
+    .pos { color: #34d399; }
+    .neg { color: #f87171; }
+    .neu { color: #22d3ee; }
+    /* Sensitivity */
+    .sens-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+    }
+    .sens-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+    .sens-desc { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+    .sens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .sens-sub-title { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+    .sens-scroll { overflow-x: auto; }
+    .stbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .stbl th, .stbl td {
+      padding: 5px 9px; text-align: center;
+      border: 1px solid var(--border);
+    }
+    .stbl th { background: rgba(255,255,255,.04); color: var(--text-muted); }
+    .sh0 { background: rgba(239,68,68,.40); }
+    .sh1 { background: rgba(239,68,68,.24); }
+    .sh2 { background: rgba(239,68,68,.10); }
+    .sh3 { background: rgba(79,142,247,.08); }
+    .sh4 { background: rgba(52,211,153,.14); }
+    .sh5 { background: rgba(52,211,153,.28); }
+    .sh6 { background: rgba(52,211,153,.45); }
+    .sh-base { outline: 2px solid var(--accent3); }
+    /* Footer */
+    .footer { font-size: 11px; color: var(--text-muted); text-align: center; padding: 14px 0; border-top: 1px solid var(--border); }
+    @media (max-width: 1200px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { max-height: none; position: static; }
+      .charts-row, .sens-grid { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .kpis { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🏢 不动产 <span>DCF</span> 估值模型平台</h1>
+  <div class="badge">Real Estate Valuation · DCF</div>
+</header>
+
+<div class="layout">
+  <!-- ===== 参数面板 ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-heading">模型参数输入</div>
+
+    <!-- 物业基本 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#4f8ef7">
+        <div class="pg-dot" style="background:#4f8ef7"></div>物业基本信息
+      </div>
+      <div class="field">
+        <label>物业面积（㎡）</label>
+        <input type="number" id="area" value="5000" min="1" step="100"/>
+      </div>
+      <div class="field">
+        <label>租金单价（元/㎡/月）<span style="font-size:10px;color:#f59e0b;font-weight:600">含税价</span></label>
+        <input type="number" id="rent_sqm" value="80" min="0" step="1"/>
+      </div>
+      <div class="field">
+        <label>持有/合同周期（年）</label>
+        <input type="number" id="years" value="10" min="1" max="30" step="1"/>
+      </div>
+    </div>
+
+    <!-- 运营假设 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#34d399">
+        <div class="pg-dot" style="background:#34d399"></div>租赁与租金
+      </div>
+      <div class="field">
+        <label>租赁周期（年/期）</label>
+        <input type="number" id="lease_cycle" value="3" min="1" max="10" step="1"/>
+      </div>
+      <div class="field">
+        <label>每周期末租金调幅（跳涨率）<span class="lv" id="v_rent_growth">3.0 %</span></label>
+        <input type="range" id="rent_growth" min="-10" max="15" step="0.5" value="3"
+          oninput="syncRange(this,'v_rent_growth','%',1)"/>
+      </div>
+      <div class="field">
+        <label>空置率 <span class="lv" id="v_vacancy">10 %</span></label>
+        <input type="range" id="vacancy" min="0" max="60" step="1" value="10"
+          oninput="syncRange(this,'v_vacancy','%',0)"/>
+      </div>
+      <div class="field" style="font-size:10.5px;color:#8892a4;padding:6px 8px;background:rgba(79,142,247,.07);border-radius:6px;line-height:1.7">
+        💡 租赁周期内租金保持不变，仅在周期结束时按「跳涨率」调租。如周期=3年、跳涨3% → 第4年起租金上涨3%，第4-6年保持不变，第7年再调。
+      </div>
+    </div>
+
+    <!-- 房产税 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#f59e0b">
+        <div class="pg-dot" style="background:#f59e0b"></div>房产税（双轨制）
+      </div>
+      <div class="field">
+        <label>出租部分房产税税率 <span class="lv" id="v_rent_tax">12 %</span></label>
+        <input type="range" id="rent_tax" min="0" max="30" step="0.5" value="12"
+          oninput="syncRange(this,'v_rent_tax','%',1)"/>
+      </div>
+      <div class="field">
+        <label>从价计征扣除比例 <span class="lv" id="v_deduct">30 %</span></label>
+        <input type="range" id="deduct" min="0" max="50" step="1" value="30"
+          oninput="syncRange(this,'v_deduct','%',0)"/>
+      </div>
+      <div class="field">
+        <label>从价计征税率 <span class="lv" id="v_adval">1.2 %</span></label>
+        <input type="range" id="adval" min="0.5" max="5" step="0.1" value="1.2"
+          oninput="syncRange(this,'v_adval','%',1)"/>
+      </div>
+    </div>
+
+    <!-- 增值税及附加 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#ef4444">
+        <div class="pg-dot" style="background:#ef4444"></div>增值税及附加
+      </div>
+      <div class="field" style="font-size:10.5px;color:#8892a4;padding:6px 8px;background:rgba(239,68,68,.07);border-radius:6px;line-height:1.7">
+        💡 租金单价为含税价。增值税从租金中扣除，房产税按不含增值税的有效收入计算。
+      </div>
+      <div class="field">
+        <label>增值税率（一般纳税人）<span class="lv" id="v_vat_rate">9.0 %</span></label>
+        <input type="range" id="vat_rate" min="0" max="13" step="0.5" value="9"
+          oninput="syncRange(this,'v_vat_rate','%',1)"/>
+      </div>
+      <div class="field">
+        <label>城建税率 <span class="lv" id="v_city_tax">7 %</span></label>
+        <input type="range" id="city_tax" min="1" max="7" step="1" value="7"
+          oninput="syncRange(this,'v_city_tax','%',0)"/>
+      </div>
+      <div class="field">
+        <label>教育费附加率（含地方）<span class="lv" id="v_edu_rate">5 %</span></label>
+        <input type="range" id="edu_rate" min="3" max="5" step="1" value="5"
+          oninput="syncRange(this,'v_edu_rate','%',0)"/>
+      </div>
+    </div>
+
+    <!-- 成本支出 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#f59e0b">
+        <div class="pg-dot" style="background:#f59e0b"></div>成本与资本支出
+      </div>
+      <div class="field">
+        <label>期间费用模式</label>
+        <select id="opex_mode" onchange="toggleOpexMode()">
+          <option value="fixed">固定金额（元/年）</option>
+          <option value="pct">按年租金收入比例 %</option>
+        </select>
+      </div>
+      <div class="field" id="opex_fixed_row">
+        <label>期间费用（元/年）<span style="font-size:10px;color:#8892a4">物管/维修/保险等</span></label>
+        <input type="number" id="opex_fixed" value="300000" min="0" step="10000"/>
+      </div>
+      <div class="field" id="opex_pct_row" style="display:none">
+        <label>期间费用占租金收入比 <span class="lv" id="v_opex_pct">8.0 %</span></label>
+        <input type="range" id="opex_pct" min="1" max="30" step="0.5" value="8"
+          oninput="syncRange(this,'v_opex_pct','%',1)"/>
+      </div>
+      <div class="field">
+        <label>期间费用年增长率 <span class="lv" id="v_opex_g">2.0 %</span></label>
+        <input type="range" id="opex_g" min="0" max="10" step="0.5" value="2"
+          oninput="syncRange(this,'v_opex_g','%',1)"/>
+      </div>
+
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px"></div>
+
+      <div class="field">
+        <label>CapEx 模式</label>
+        <select id="capex_mode" onchange="toggleCapexMode()">
+          <option value="fixed">固定金额（元/年）</option>
+          <option value="pct">按年租金收入比例 %</option>
+        </select>
+      </div>
+      <div class="field" id="capex_fixed_row">
+        <label>CapEx（元/年）<span style="font-size:10px;color:#8892a4">装修/设备更新等</span></label>
+        <input type="number" id="capex_fixed" value="100000" min="0" step="10000"/>
+      </div>
+      <div class="field" id="capex_pct_row" style="display:none">
+        <label>CapEx 占租金收入比 <span class="lv" id="v_capex_pct">3.0 %</span></label>
+        <input type="range" id="capex_pct" min="0.5" max="15" step="0.5" value="3"
+          oninput="syncRange(this,'v_capex_pct','%',1)"/>
+      </div>
+    </div>
+
+    <!-- 估值参数 -->
+    <div class="param-group">
+      <div class="pg-title" style="color:#a78bfa">
+        <div class="pg-dot" style="background:#a78bfa"></div>估值参数
+      </div>
+      <div class="field">
+        <label>折现率 WACC <span class="lv" id="v_dr">8.0 %</span></label>
+        <input type="range" id="dr" min="3" max="20" step="0.5" value="8"
+          oninput="syncRange(this,'v_dr','%',1)"/>
+      </div>
+      <div class="field">
+        <label>房地产原值（万元）</label>
+        <input type="number" id="orig" value="4000" min="0" step="50"/>
+      </div>
+      <div class="field">
+        <label>房地产残值（万元）</label>
+        <input type="number" id="resid" value="3000" min="0" step="50"/>
+      </div>
+      <div class="field">
+        <label>残值处理方式</label>
+        <select id="term_mode" onchange="toggleGordon()">
+          <option value="fixed">持有期末残值直接折现</option>
+          <option value="gordon">Gordon 永续增长模型终值</option>
+        </select>
+      </div>
+      <div class="field" id="gordon_row" style="display:none">
+        <label>永续增长率 g <span class="lv" id="v_gg">2.0 %</span></label>
+        <input type="range" id="gg" min="0" max="6" step="0.25" value="2"
+          oninput="syncRange(this,'v_gg','%',1)"/>
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="run()">▶ &nbsp;运行 DCF 模型</button>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center">
+      调整任意参数后点击运行刷新结果
+    </div>
+  </aside>
+
+  <!-- ===== 主结果区 ===== -->
+  <main class="main">
+    <!-- KPI -->
+    <div class="kpis">
+      <div class="kpi c1"><div class="kpi-lbl">DCF 估值（折现值）</div><div class="kpi-val" id="k_npv">—</div><div class="kpi-sub">累计折现现金流</div></div>
+      <div class="kpi c2"><div class="kpi-lbl">内部收益率 IRR</div><div class="kpi-val" id="k_irr">—</div><div class="kpi-sub">基于期初投入</div></div>
+      <div class="kpi c3"><div class="kpi-lbl">资本化率 Cap Rate</div><div class="kpi-val" id="k_cap">—</div><div class="kpi-sub">首年 NOI / 原值</div></div>
+      <div class="kpi c4"><div class="kpi-lbl">首年净营业收入</div><div class="kpi-val" id="k_noi">—</div><div class="kpi-sub">NOI Year 1</div></div>
+      <div class="kpi c5"><div class="kpi-lbl">价值增厚率</div><div class="kpi-val" id="k_prm">—</div><div class="kpi-sub">DCF估值 / 原值 - 1</div></div>
+      <div class="kpi c6"><div class="kpi-lbl">累计自由现金流</div><div class="kpi-val" id="k_fcf">—</div><div class="kpi-sub">持有期 FCF 合计</div></div>
+    </div>
+
+    <!-- 图表 row 1 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📊 逐年自由现金流 vs 折现现金流（万元）</div>
+        <div class="chart-wrap"><canvas id="cfChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🥧 首年现金流构成拆解（含增值税）</div>
+        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 图表 row 2 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📈 累计折现现金流（价值积累曲线，万元）</div>
+        <div class="chart-wrap"><canvas id="cumChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📉 逐年收入 vs 支出构成（含税，万元）</div>
+        <div class="chart-wrap"><canvas id="stackChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 现金流明细 -->
+    <div class="tcard">
+      <h3>📋 逐年现金流明细表（万元）</h3>
+      <div class="tscroll">
+        <table>
+          <thead>
+            <tr>
+              <th>年份</th>
+              <th>含税租金收入</th>
+              <th>空置损失</th>
+              <th>不含税有效收入</th>
+              <th>增值税</th>
+              <th>城建税</th>
+              <th>教育费附加</th>
+              <th>出租房产税</th>
+              <th>空置房产税</th>
+              <th>房产税合计</th>
+              <th>期间费用</th>
+              <th>资本性开支</th>
+              <th>NOI</th>
+              <th>自由现金流</th>
+              <th>折现系数</th>
+              <th>折现CF</th>
+              <th>累计折现CF</th>
+            </tr>
+          </thead>
+          <tbody id="cf_tbody">
+            <tr>
+              <td colspan="17" style="text-align:center;padding:40px;color:var(--text-muted)">
+                请填写参数后点击「运行 DCF 模型」
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 敏感性分析 -->
+    <div class="sens-card">
+      <h3>🔬 敏感性分析</h3>
+      <div class="sens-desc">
+        以当前参数为基准，对折现率和租金增值率 / 空置率进行压力测试。
+        深红 = 价值偏低，深绿 = 价值偏高，金框 = 基准情景
+      </div>
+      <div class="sens-grid">
+        <div>
+          <div class="sens-sub-title">NPV 矩阵：折现率 × 租金增值率（万元）</div>
+          <div class="sens-scroll"><table class="stbl" id="stbl_npv"></table></div>
+        </div>
+        <div>
+          <div class="sens-sub-title">IRR 矩阵：空置率 × 折现率（%）</div>
+          <div class="sens-scroll"><table class="stbl" id="stbl_irr"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      ⚠️ 本平台仅供参考，不构成任何投资建议。结果基于静态测算，实际回报受政策、市场等多重因素影响。
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── 全局图表实例 ───
+let charts = {};
+
+// ─── 工具 ───
+function syncRange(el, labelId, unit, dec) {
+  document.getElementById(labelId).textContent = parseFloat(el.value).toFixed(dec) + ' ' + unit;
+}
+function toggleGordon() {
+  document.getElementById('gordon_row').style.display =
+    document.getElementById('term_mode').value === 'gordon' ? '' : 'none';
+}
+function toggleOpexMode() {
+  const m = document.getElementById('opex_mode').value;
+  document.getElementById('opex_fixed_row').style.display = m==='fixed' ? '' : 'none';
+  document.getElementById('opex_pct_row').style.display = m==='pct' ? '' : 'none';
+}
+function toggleCapexMode() {
+  const m = document.getElementById('capex_mode').value;
+  document.getElementById('capex_fixed_row').style.display = m==='fixed' ? '' : 'none';
+  document.getElementById('capex_pct_row').style.display = m==='pct' ? '' : 'none';
+}
+
+function fmtW(n) { // 万元，保留2位
+  if (n === null || isNaN(n)) return '—';
+  return (n / 10000).toFixed(2);
+}
+function fmtAuto(n) {
+  if (isNaN(n) || n === null) return '—';
+  const sign = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  if (a >= 1e8)  return sign + (a / 1e8).toFixed(2) + ' 亿';
+  if (a >= 1e4)  return sign + (a / 1e4).toFixed(1) + ' 万';
+  return sign + a.toFixed(0);
+}
+function fmtPct(r) {
+  return isNaN(r) ? '—' : (r * 100).toFixed(2) + '%';
+}
+
+// ─── IRR 二分法 ───
+function irr(cfs) {
+  let lo = -0.9999, hi = 10.0, mid, npv, iter = 0;
+  const f = r => cfs.reduce((s, c, t) => s + c / Math.pow(1 + r, t), 0);
+  if (f(lo) * f(hi) > 0) return NaN;
+  while (iter++ < 300) {
+    mid = (lo + hi) / 2;
+    npv = f(mid);
+    if (Math.abs(npv) < 0.1) break;
+    npv > 0 ? lo = mid : hi = mid;
+  }
+  return mid;
+}
+
+// ─── 核心DCF计算 ───
+function dcf(p) {
+  const rows = [];
+  let cum = 0;
+  const irrCFs = [-p.orig];
+  const LC     = Math.max(1, p.lease_cycle); // 租赁周期（年）
+
+  for (let y = 1; y <= p.years; y++) {
+    // ── 租金：按租赁周期阶梯式调租（含税价）──
+    const cycleIdx = Math.floor((y - 1) / LC);
+    const grossVATin = p.area * p.rent_sqm * 12 * Math.pow(1 + p.rent_g / 100, cycleIdx); // 含税毛租金
+
+    const vacLoss = grossVATin * (p.vacancy / 100);                                    // 空置损失（含税）
+    const effVATin  = grossVATin - vacLoss;                                            // 含税有效收入
+
+    // ── 增值税及附加（从含税收入中剥离）──
+    const vatBase     = p.vat_rate > 0 ? effVATin / (1 + p.vat_rate / 100) : effVATin; // 不含税有效收入
+    const vatPay      = effVATin - vatBase;                                             // 应纳增值税额
+    const citySurtax  = vatPay * (p.city_tax / 100);                                   // 城建税
+    const eduSurtax   = vatPay * (p.edu_rate / 100);                                   // 教育费附加
+    const totalVATadd = vatPay + citySurtax + eduSurtax;                               // 增值税及附加合计
+
+    // ── 房产税（双轨制）——基于不含税收入 ──
+    const rentTax    = vatBase * (p.rent_tax / 100);                                     // 从租计征：不含税收入 × 税率
+    const vacancyTax = p.orig * (1 - p.deduct/100) * (p.adval/100) * (p.vacancy/100); // 从价计征：不变
+    const tax        = rentTax + vacancyTax;
+
+    // ── 期间费用：固定金额 或 按租金收入% ──
+    let opexY;
+    if (p.opex_mode === 'fixed') {
+      opexY = p.opex_fixed * Math.pow(1 + p.opex_g / 100, y - 1);
+    } else {
+      opexY = grossVATin * (p.opex_pct / 100) * Math.pow(1 + p.opex_g / 100, y - 1);
+    }
+
+    // ── CapEx：固定金额 或 按租金收入% ──
+    let capexY;
+    if (p.capex_mode === 'fixed') {
+      capexY = p.capex_fixed;
+    } else {
+      capexY = grossVATin * (p.capex_pct / 100);
+    }
+
+    const noi = vatBase - tax - opexY - totalVATadd;
+    const fcf = noi - capexY;
+
+    let tv = 0;
+    if (y === p.years) {
+      if (p.term_mode === 'gordon') {
+        const g = p.gg / 100, r = p.dr / 100;
+        tv = r > g ? noi * (1 + g) / (r - g) : 0;
+      } else {
+        tv = p.resid;
+      }
+    }
+
+    const df   = 1 / Math.pow(1 + p.dr / 100, y);
+    const dcfV = (fcf + tv) * df;
+    cum += dcfV;
+    irrCFs.push(fcf + (y === p.years ? tv : 0));
+
+    rows.push({ y, cycleIdx, gross: grossVATin, vacLoss, eff: vatBase,
+               rentTax, vacancyTax, tax, opexY, capexY, noi, fcf, tv,
+               vatPay, citySurtax, eduSurtax, totalVATadd, df, dcfV, cum });
+  }
+
+  const npv    = cum - p.orig;
+  const irrVal = irr(irrCFs);
+  const cap    = rows[0].noi / p.orig;
+  const totFCF = rows.reduce((s, r) => s + r.fcf, 0);
+  const prem   = cum / p.orig - 1;
+
+  return { rows, npv, irr: irrVal, cap, firstNOI: rows[0].noi, totFCF, prem, cum };
+}
+
+// ─── 读参数 ───
+function getP() {
+  const opexMode = document.getElementById('opex_mode').value;
+  const capexMode = document.getElementById('capex_mode').value;
+  return {
+    area:       +document.getElementById('area').value,
+    rent_sqm:   +document.getElementById('rent_sqm').value,
+    years:      +document.getElementById('years').value,
+    lease_cycle:+document.getElementById('lease_cycle').value,  // 租赁周期(年)
+    rent_g:     +document.getElementById('rent_growth').value,   // 周期末跳涨率%
+    vacancy:    +document.getElementById('vacancy').value,
+    rent_tax:   +document.getElementById('rent_tax').value,
+    deduct:     +document.getElementById('deduct').value,
+    adval:      +document.getElementById('adval').value,
+    // 增值税及附加
+    vat_rate:   +document.getElementById('vat_rate').value,     // 增值税率%
+    city_tax:   +document.getElementById('city_tax').value,     // 城建税率%
+    edu_rate:   +document.getElementById('edu_rate').value,     // 教育费附加率%（含地方）
+    // 期间费用
+    opex_mode:  opexMode,
+    opex_fixed: opexMode==='fixed' ? +document.getElementById('opex_fixed').value : 0,
+    opex_pct:   opexMode==='pct'   ? +document.getElementById('opex_pct').value : 0,
+    opex_g:     +document.getElementById('opex_g').value,
+    // CapEx
+    capex_mode: capexMode,
+    capex_fixed: capexMode==='fixed' ? +document.getElementById('capex_fixed').value : 0,
+    capex_pct:  capexMode==='pct'   ? +document.getElementById('capex_pct').value : 0,
+    dr:         +document.getElementById('dr').value,
+    orig:       +document.getElementById('orig').value * 10000,   // 万元 → 元
+    resid:      +document.getElementById('resid').value * 10000, // 万元 → 元
+    term_mode:   document.getElementById('term_mode').value,
+    gg:         +document.getElementById('gg').value,
+  };
+}
+
+// ─── 主入口 ───
+function run() {
+  const p = getP();
+  const res = dcf(p);
+  renderKPI(res, p);
+  renderTable(res.rows);
+  renderCharts(res.rows, p);
+  renderSens(p, res);
+}
+
+// ─── KPI ───
+function renderKPI(res, p) {
+  document.getElementById('k_npv').textContent = fmtAuto(res.cum);  // DCF估值 = 累计折现现金流（不扣除原值）
+  document.getElementById('k_irr').textContent = isNaN(res.irr) ? '—' : fmtPct(res.irr);
+  document.getElementById('k_cap').textContent = fmtPct(res.cap);
+  document.getElementById('k_noi').textContent = fmtAuto(res.firstNOI);
+  document.getElementById('k_prm').textContent = (res.prem * 100).toFixed(1) + '%';
+  document.getElementById('k_fcf').textContent = fmtAuto(res.totFCF);
+}
+
+// ─── 表格 ───
+function renderTable(rows) {
+  const tbody = document.getElementById('cf_tbody');
+  tbody.innerHTML = '';
+  let sg=0,sv=0,se=0,st=0,so=0,sc=0,sn=0,sf=0,sd=0,srt=0,svt=0,
+      svat=0,scity=0,sedu=0,svta=0;
+  const LC = rows.length > 0 && rows[0].cycleIdx !== undefined
+    ? (document.getElementById ? +document.getElementById('lease_cycle').value : 3)
+    : 1;
+
+  rows.forEach(r => {
+    sg+=r.gross; sv+=r.vacLoss; se+=r.eff;
+    svat+=r.vatPay; scity+=r.citySurtax; sedu+=r.eduSurtax; svta+=r.totalVATadd;
+    srt+=r.rentTax; svt+=r.vacancyTax; st+=r.tax;
+    so+=r.opexY; sc+=r.capexY; sn+=r.noi; sf+=r.fcf; sd+=r.dcfV;
+
+    const isCycleStart = r.cycleIdx !== undefined && ((r.y===1)||(r.cycleIdx > 0));
+    const tag = (isCycleStart && r.y>1) ? ' <span style="color:#f59e0b;font-size:10px;font-weight:700">⬆调租</span>' : '';
+
+    const tr = document.createElement('tr');
+    if (isCycleStart) tr.style.background = 'rgba(245,158,11,.06)';
+    tr.innerHTML = `
+      <td style="font-weight:${isCycleStart?'700':'500'}">第 ${r.y} 年${tag}</td>
+      <td>${fmtW(r.gross)}</td>
+      <td class="neg">-${fmtW(r.vacLoss)}</td>
+      <td>${fmtW(r.eff)}</td>
+      <td class="neg">-${fmtW(r.vatPay)}</td>
+      <td class="neg">-${fmtW(r.citySurtax)}</td>
+      <td class="neg">-${fmtW(r.eduSurtax)}</td>
+      <td class="neg">-${fmtW(r.rentTax)}</td>
+      <td class="neg">-${fmtW(r.vacancyTax)}</td>
+      <td class="neg">-${fmtW(r.tax)}</td>
+      <td class="neg">-${fmtW(r.opexY)}</td>
+      <td class="neg">-${fmtW(r.capexY)}</td>
+      <td class="${r.noi>=0?'pos':'neg'}">${fmtW(r.noi)}</td>
+      <td class="${r.fcf>=0?'pos':'neg'}">${fmtW(r.fcf)}${r.tv>0?'<span style="color:#f59e0b;font-size:10px"> +残</span>':''}</td>
+      <td style="color:var(--text-muted)">${r.df.toFixed(4)}</td>
+      <td class="${r.dcfV>=0?'pos':'neg'}">${fmtW(r.dcfV)}</td>
+      <td class="neu">${fmtW(r.cum)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const tot = document.createElement('tr');
+  tot.className = 'total-row';
+  tot.innerHTML = `<td>合 计</td><td>${fmtW(sg)}</td><td>-${fmtW(sv)}</td><td>${fmtW(se)}</td>
+    <td>-${fmtW(svat)}</td><td>-${fmtW(scity)}</td><td>-${fmtW(sedu)}</td>
+    <td>-${fmtW(srt)}</td><td>-${fmtW(svt)}</td><td>-${fmtW(st)}</td>
+    <td>-${fmtW(so)}</td><td>-${fmtW(sc)}</td>
+    <td>${fmtW(sn)}</td><td>${fmtW(sf)}</td><td>—</td><td>${fmtW(sd)}</td><td>—</td>`;
+  tbody.appendChild(tot);
+}
+
+// ─── 图表 ───
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+const COLORS = {
+  blue:   '#4f8ef7', green: '#34d399', amber: '#f59e0b',
+  red:    '#ef4444', teal:  '#22d3ee', purple:'#a78bfa',
+  blueA:  'rgba(79,142,247,.18)', greenA:'rgba(52,211,153,.18)',
+};
+
+function renderCharts(rows, p) {
+  const labels = rows.map(r => `Y${r.y}`);
+
+  // 1. 柱状+折线：FCF vs DCF
+  destroyChart('cf');
+  charts['cf'] = new Chart(document.getElementById('cfChart'), {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar', label: '自由现金流 FCF',
+          data: rows.map(r => +(r.fcf/10000).toFixed(2)),
+          backgroundColor: COLORS.blueA,
+          borderColor: COLORS.blue, borderWidth: 1.5,
+        },
+        {
+          type: 'line', label: '折现现金流 PV',
+          data: rows.map(r => +(r.dcfV/10000).toFixed(2)),
+          borderColor: COLORS.green, backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 3, tension: 0.35,
+        },
+      ],
+    },
+    options: chartOpts('万元'),
+  });
+
+  // 2. 饼图：首年构成
+  destroyChart('pie');
+  const r0 = rows[0];
+  charts['pie'] = new Chart(document.getElementById('pieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['空置损失', '增值税', '城建税+教育费附加', '出租房产税', '空置房产税', '期间费用', '资本性开支', '净现金流'],
+      datasets: [{
+        data: [
+          +(r0.vacLoss/10000).toFixed(1),
+          +(r0.vatPay/10000).toFixed(1),
+          +((r0.citySurtax+r0.eduSurtax)/10000).toFixed(1),
+          +(r0.rentTax/10000).toFixed(1),
+          +(r0.vacancyTax/10000).toFixed(1),
+          +(r0.opexY/10000).toFixed(1),
+          +(r0.capexY/10000).toFixed(1),
+          +(r0.fcf/10000).toFixed(1),
+        ],
+        backgroundColor: [COLORS.red, '#ef4444', '#dc2626', '#f59e0b', '#d97706', COLORS.purple, '#f97316', COLORS.green],
+        borderWidth: 2, borderColor: '#1e2130',
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8892a4', font: { size: 11 }, boxWidth: 12, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)} 万元` } },
+      },
+    },
+  });
+
+  // 3. 累计折现CF
+  destroyChart('cum');
+  charts['cum'] = new Chart(document.getElementById('cumChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '累计折现CF',
+        data: rows.map(r => +(r.cum/10000).toFixed(2)),
+        borderColor: COLORS.teal, backgroundColor: 'rgba(34,211,238,.1)',
+        borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 3,
+      },{
+        label: '原值基准线',
+        data: rows.map(() => +(p.orig/10000).toFixed(2)),
+        borderColor: 'rgba(239,68,68,.5)', borderDash: [5,5],
+        borderWidth: 1.5, pointRadius: 0, fill: false,
+      }],
+    },
+    options: chartOpts('万元'),
+  });
+
+  // 4. 堆叠条：收入 vs 支出
+  destroyChart('stack');
+  charts['stack'] = new Chart(document.getElementById('stackChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '不含税有效收入', data: rows.map(r=>+(r.eff/10000).toFixed(2)), backgroundColor: COLORS.blueA, borderColor: COLORS.blue, borderWidth: 1 },
+        { label: '增值税', data: rows.map(r=>+(-r.vatPay/10000).toFixed(2)), backgroundColor: 'rgba(239,68,68,.25)', borderColor: '#ef4444', borderWidth: 1 },
+        { label: '城建税+教育费附加', data: rows.map(r=>+(-(r.citySurtax+r.eduSurtax)/10000).toFixed(2)), backgroundColor: 'rgba(239,68,68,.40)', borderColor: '#dc2626', borderWidth: 1 },
+        { label: '出租房产税', data: rows.map(r=>+(-r.rentTax/10000).toFixed(2)), backgroundColor: 'rgba(245,158,11,.20)', borderColor: '#f59e0b', borderWidth: 1 },
+        { label: '空置房产税', data: rows.map(r=>+(-r.vacancyTax/10000).toFixed(2)), backgroundColor: 'rgba(217,119,6,.30)', borderColor: '#d97706', borderWidth: 1 },
+        { label: '期间费用', data: rows.map(r=>+(-r.opexY/10000).toFixed(2)), backgroundColor: 'rgba(167,139,250,.25)', borderColor: COLORS.purple, borderWidth: 1 },
+        { label: '资本性开支', data: rows.map(r=>+(-r.capexY/10000).toFixed(2)), backgroundColor: 'rgba(249,115,22,.20)', borderColor: '#f97316', borderWidth: 1 },
+      ],
+    },
+    options: {
+      ...chartOpts('万元'),
+      scales: {
+        x: { stacked: false, ticks: { color: '#8892a4', font:{size:11} }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { stacked: false, ticks: { color: '#8892a4', font:{size:11} }, grid: { color: 'rgba(255,255,255,.05)' } },
+      },
+    },
+  });
+}
+
+function chartOpts(yLabel) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#8892a4', font:{size:11}, boxWidth: 12, padding: 10 } },
+      tooltip: { mode: 'index', intersect: false },
+    },
+    scales: {
+      x: { ticks: { color: '#8892a4', font:{size:11} }, grid: { color: 'rgba(255,255,255,.05)' } },
+      y: { ticks: { color: '#8892a4', font:{size:11} }, grid: { color: 'rgba(255,255,255,.05)' },
+           title: { display: true, text: yLabel, color: '#8892a4', font:{size:11} } },
+    },
+  };
+}
+
+// ─── 敏感性 ───
+function heatClass(v, base) {
+  if (!isFinite(v) || !isFinite(base)) return '';
+  const d = base !== 0 ? (v - base) / Math.abs(base) : 0;
+  if (d < -0.20) return 'sh0';
+  if (d < -0.10) return 'sh1';
+  if (d < -0.03) return 'sh2';
+  if (d <  0.03) return 'sh3';
+  if (d <  0.10) return 'sh4';
+  if (d <  0.20) return 'sh5';
+  return 'sh6';
+}
+
+function renderSens(baseP, baseRes) {
+  // NPV: 行=折现率偏移, 列=租金增值率偏移
+  const drOffsets    = [-2, -1, 0, 1, 2];
+  const rentGOffsets = [-2, -1, 0, 1, 2];
+
+  let html = '<thead><tr><th>折现率↓ / 租金增值率→</th>';
+  rentGOffsets.forEach(o => {
+    const v = baseP.rent_g + o;
+    html += `<th>${v.toFixed(1)}%${o===0?' ★':''}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  drOffsets.forEach(dr_o => {
+    const drV = baseP.dr + dr_o;
+    html += `<tr><th>${drV.toFixed(1)}%${dr_o===0?' ★':''}</th>`;
+    rentGOffsets.forEach(rg_o => {
+      const pp = { ...baseP, dr: drV, rent_g: baseP.rent_g + rg_o };
+      const r  = dcf(pp);
+      const isBase = dr_o === 0 && rg_o === 0;
+      const cls = heatClass(r.npv, baseRes.npv);
+      html += `<td class="${cls}${isBase?' sh-base':''}">${(r.npv/10000).toFixed(0)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('stbl_npv').innerHTML = html;
+
+  // IRR: 行=空置率偏移, 列=折现率偏移（显示参考）
+  const vacOffsets = [-10, -5, 0, 5, 10];
+  let html2 = '<thead><tr><th>空置率↓ / 折现率→</th>';
+  drOffsets.forEach(o => {
+    html2 += `<th>${(baseP.dr+o).toFixed(1)}%${o===0?' ★':''}</th>`;
+  });
+  html2 += '</tr></thead><tbody>';
+
+  vacOffsets.forEach(v_o => {
+    const vacV = Math.max(0, baseP.vacancy + v_o);
+    html2 += `<tr><th>${vacV.toFixed(0)}%${v_o===0?' ★':''}</th>`;
+    drOffsets.forEach(dr_o => {
+      const pp = { ...baseP, vacancy: vacV, dr: baseP.dr + dr_o };
+      const r  = dcf(pp);
+      const isBase = v_o === 0 && dr_o === 0;
+      const irrV = r.irr;
+      const cls  = heatClass(irrV, baseRes.irr);
+      html2 += `<td class="${cls}${isBase?' sh-base':''}">${isNaN(irrV)?'—':(irrV*100).toFixed(1)}</td>`;
+    });
+    html2 += '</tr>';
+  });
+  html2 += '</tbody>';
+  document.getElementById('stbl_irr').innerHTML = html2;
+}
+
+// ─── 初始运行 ───
+window.onload = () => run();
+</script>
+</body>
+</html>
