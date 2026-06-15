@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>不动产 DCF 估值模型平台</title>
   <script src="chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
   <style>
     :root {
       --bg: #0f1117;
@@ -398,6 +399,9 @@
     </div>
 
     <button class="calc-btn" onclick="run()">▶ &nbsp;运行 DCF 模型</button>
+    <button class="calc-btn" id="pptBtn" onclick="exportPPT()" style="margin-top:10px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:none">
+      📊 &nbsp;导出投资分析 PPT
+    </button>
     <div style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center">
       调整任意参数后点击运行刷新结果
     </div>
@@ -933,6 +937,535 @@ function renderSens(baseP, baseRes) {
 
 // ─── 初始运行 ───
 window.onload = () => run();
+
+// ══════════════════════════════════════════════════════
+//  导出 PPT（结论先行，5页结构）
+// ══════════════════════════════════════════════════════
+let _lastRes = null, _lastP = null;
+
+// 覆盖 run，保存最新结果
+const _origRun = run;
+function run() {
+  _origRun();
+  const p = getP();
+  _lastRes = dcf(p);
+  _lastP = p;
+  document.getElementById('pptBtn').style.display = '';
+}
+
+function exportPPT() {
+  if (!_lastRes || !_lastP) { alert('请先运行 DCF 模型'); return; }
+  const p = _lastP, res = _lastRes;
+  const rows = res.rows;
+
+  // ── 调色板（深蓝专业风）──
+  const C = {
+    bg:     '0D1B2A',   // 深夜蓝背景
+    surf:   '1B2A3D',   // 卡片面
+    accent: '3B82F6',   // 蓝
+    green:  '10B981',   // 绿
+    amber:  'F59E0B',   // 橙金
+    red:    'EF4444',   // 红
+    teal:   '06B6D4',   // 青
+    purple: '8B5CF6',   // 紫
+    white:  'FFFFFF',
+    muted:  '94A3B8',
+    light:  'E2E8F0',
+  };
+
+  // ── 工具函数 ──
+  const fmt = (n, d=1) => isNaN(n)||n===null ? '—' : (n/1e4).toFixed(d);
+  const fmtPct = (r, d=2) => isNaN(r)||r===null ? '—' : (r*100).toFixed(d)+'%';
+  const fmtAmt = (n) => {
+    if (isNaN(n)||n===null) return '—';
+    const sign = n<0 ? '-' : '';
+    const a = Math.abs(n);
+    if (a>=1e8) return sign+(a/1e8).toFixed(2)+'亿元';
+    return sign+(a/1e4).toFixed(0)+'万元';
+  };
+  const fmtBig = (n) => {
+    if (isNaN(n)||n===null) return '—';
+    const sign = n<0 ? '-' : '';
+    const a = Math.abs(n);
+    if (a>=1e8) return sign+(a/1e8).toFixed(1)+'亿';
+    return sign+(a/1e4).toFixed(0)+'万';
+  };
+
+  const makeShadow = () => ({ type:'outer', color:'000000', blur:8, offset:3, angle:135, opacity:0.18 });
+
+  const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_16x9';
+  pres.title  = '不动产投资分析报告';
+
+  // ── 共用：深色背景+页脚 ──
+  function addBase(slide, showFooter=true) {
+    slide.background = { color: C.bg };
+    if (showFooter) {
+      slide.addText('不动产投资分析报告  ·  仅供内部参考', {
+        x:0, y:5.35, w:10, h:0.27,
+        fontSize:8, color:C.muted, align:'center', valign:'middle',
+        fill:{ color:'0A1420' }, margin:0,
+      });
+    }
+  }
+
+  // ── 页面右上角徽标 ──
+  function addBadge(slide, text) {
+    slide.addShape(pres.shapes.RECTANGLE, {
+      x:8.5, y:0.18, w:1.3, h:0.32,
+      fill:{ color:C.accent }, line:{ color:C.accent }
+    });
+    slide.addText(text, {
+      x:8.5, y:0.18, w:1.3, h:0.32,
+      fontSize:9, color:C.white, bold:true, align:'center', valign:'middle', margin:0,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  第 1 页：结论摘要（结论先行）
+  // ─────────────────────────────────────────────────────
+  const s1 = pres.addSlide();
+  addBase(s1, false);
+
+  // 左侧深色装饰条
+  s1.addShape(pres.shapes.RECTANGLE, {
+    x:0, y:0, w:0.12, h:5.625,
+    fill:{ color:C.accent }, line:{ color:C.accent },
+  });
+
+  // 主标题
+  s1.addText('不动产投资价值分析', {
+    x:0.3, y:0.4, w:8, h:0.8,
+    fontSize:34, bold:true, color:C.white, fontFace:'Arial Black',
+  });
+  s1.addText('Investment Valuation Report  ·  结论摘要', {
+    x:0.3, y:1.15, w:8, h:0.35,
+    fontSize:13, color:C.muted, italic:true,
+  });
+
+  // 分割线
+  s1.addShape(pres.shapes.LINE, {
+    x:0.3, y:1.55, w:9.4, h:0,
+    line:{ color:C.accent, width:1.5 },
+  });
+
+  // ── 结论卡片（4个核心指标）──
+  const kpiItems = [
+    { lbl:'DCF 估值', val: fmtBig(res.cum), sub:'折现现金流合计', color: C.accent },
+    { lbl:'全周期 IRR', val: fmtPct(res.irr), sub:'内部收益率', color: C.green },
+    { lbl:'首年 Cap Rate', val: fmtPct(res.cap), sub:'资本化率', color: C.amber },
+    { lbl:'价值增厚率', val: (res.prem*100).toFixed(1)+'%', sub:'估值/原值-1', color: C.teal },
+  ];
+  kpiItems.forEach((k, i) => {
+    const x = 0.3 + i * 2.38;
+    s1.addShape(pres.shapes.RECTANGLE, {
+      x, y:1.75, w:2.2, h:1.65,
+      fill:{ color: C.surf }, line:{ color: k.color, width:1.5 },
+      shadow: makeShadow(),
+    });
+    // 顶部色条
+    s1.addShape(pres.shapes.RECTANGLE, {
+      x, y:1.75, w:2.2, h:0.07,
+      fill:{ color: k.color }, line:{ color: k.color },
+    });
+    s1.addText(k.lbl, {
+      x: x+0.1, y:1.85, w:2.0, h:0.28,
+      fontSize:11, color:C.muted, align:'left', margin:0,
+    });
+    s1.addText(k.val, {
+      x: x+0.1, y:2.1, w:2.0, h:0.65,
+      fontSize:26, bold:true, color:k.color, align:'left', margin:0,
+    });
+    s1.addText(k.sub, {
+      x: x+0.1, y:2.72, w:2.0, h:0.24,
+      fontSize:9, color:C.muted, align:'left', margin:0,
+    });
+  });
+
+  // ── 结论文字（投资建议）──
+  const irrOK  = !isNaN(res.irr) && res.irr > 0.06;
+  const premOK = res.prem > 0;
+  const verdict = irrOK && premOK ? '✅  投资价值较高' : (!irrOK ? '⚠️  收益率偏低，需审慎' : '⚠️  估值低于原值，持有风险较高');
+  const verdictColor = irrOK && premOK ? C.green : C.amber;
+
+  s1.addShape(pres.shapes.RECTANGLE, {
+    x:0.3, y:3.55, w:9.4, h:1.55,
+    fill:{ color: C.surf }, line:{ color: C.accent, width:1 },
+    shadow: makeShadow(),
+  });
+  s1.addText('投资结论', {
+    x:0.45, y:3.63, w:2, h:0.3,
+    fontSize:11, bold:true, color:C.muted, align:'left', margin:0,
+  });
+  s1.addText(verdict, {
+    x:0.45, y:3.9, w:4, h:0.4,
+    fontSize:17, bold:true, color:verdictColor, align:'left', margin:0,
+  });
+  const irrStr  = isNaN(res.irr) ? '无解' : fmtPct(res.irr);
+  const concl = [
+    `· 持有 ${p.years} 年，全周期 IRR ${irrStr}，DCF 估值 ${fmtBig(res.cum)}`,
+    `· 首年净营业收入（NOI）${fmtBig(res.firstNOI)}，资本化率 ${fmtPct(res.cap)}`,
+    `· 期末残值 ${fmt(p.term_mode==='fixed'?p.resid:0)} 万元（${p.term_mode==='fixed'?'固定残值':'Gordon 永续模型'}），价值增厚 ${(res.prem*100).toFixed(1)}%`,
+  ];
+  s1.addText(concl.join('\n'), {
+    x:0.45, y:4.3, w:9.0, h:0.75,
+    fontSize:11, color:C.light, lineSpacingMultiple:1.5,
+  });
+
+  s1.addText(new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'}), {
+    x:7.5, y:5.3, w:2.3, h:0.25,
+    fontSize:9, color:C.muted, align:'right',
+  });
+
+  // ─────────────────────────────────────────────────────
+  //  第 2 页：当前情况（现状）
+  // ─────────────────────────────────────────────────────
+  const s2 = pres.addSlide();
+  addBase(s2);
+  addBadge(s2, '01 现状');
+
+  s2.addText('当前运营情况', {
+    x:0.5, y:0.2, w:8, h:0.6,
+    fontSize:26, bold:true, color:C.white,
+  });
+  s2.addShape(pres.shapes.LINE, {
+    x:0.5, y:0.82, w:9, h:0,
+    line:{ color:C.accent, width:1.5 },
+  });
+
+  // 左侧：物业概况
+  const info = [
+    { lbl:'物业面积',   val: p.area.toLocaleString()+' ㎡' },
+    { lbl:'租金单价',   val: p.rent_sqm+' 元/㎡/月（含税）' },
+    { lbl:'当前空置率', val: p.vacancy+'%' },
+    { lbl:'租赁周期',   val: p.lease_cycle+' 年/期' },
+    { lbl:'房地产原值', val: (p.orig/1e4).toFixed(0)+' 万元' },
+    { lbl:'持有年限',   val: p.years+' 年' },
+  ];
+
+  s2.addShape(pres.shapes.RECTANGLE, {
+    x:0.5, y:0.98, w:4.3, h:4.1,
+    fill:{ color:C.surf }, line:{ color:'2D3F55', width:1 }, shadow:makeShadow(),
+  });
+  s2.addText('物业基本信息', {
+    x:0.65, y:1.06, w:4, h:0.35,
+    fontSize:12, bold:true, color:C.accent, margin:0,
+  });
+  info.forEach((item, i) => {
+    const y = 1.48 + i*0.55;
+    s2.addShape(pres.shapes.LINE, { x:0.65, y:y-0.04, w:4.0, h:0, line:{ color:'253447', width:0.5 } });
+    s2.addText(item.lbl, { x:0.7, y:y, w:1.9, h:0.42, fontSize:11, color:C.muted, valign:'middle', margin:0 });
+    s2.addText(item.val, { x:2.6, y:y, w:2.1, h:0.42, fontSize:12, bold:true, color:C.white, align:'right', valign:'middle', margin:0 });
+  });
+
+  // 右侧：首年收益快照
+  const r0 = rows[0];
+  const yr1 = [
+    { lbl:'含税租金收入',  val: fmt(r0.gross)+'万', color: C.green },
+    { lbl:'空置损失',      val: '-'+fmt(r0.vacLoss)+'万', color: C.red },
+    { lbl:'增值税及附加',  val: '-'+fmt(r0.totalVATadd)+'万', color: C.red },
+    { lbl:'房产税合计',    val: '-'+fmt(r0.tax)+'万', color: C.amber },
+    { lbl:'期间费用+CapEx',val: '-'+fmt(r0.opexY+r0.capexY)+'万', color: C.purple },
+    { lbl:'首年 NOI',      val: fmt(r0.noi)+'万', color: C.teal },
+    { lbl:'首年 FCF',      val: fmt(r0.fcf)+'万', color: C.accent },
+  ];
+
+  s2.addShape(pres.shapes.RECTANGLE, {
+    x:5.1, y:0.98, w:4.6, h:4.1,
+    fill:{ color:C.surf }, line:{ color:'2D3F55', width:1 }, shadow:makeShadow(),
+  });
+  s2.addText('首年现金流快照（万元）', {
+    x:5.25, y:1.06, w:4.2, h:0.35,
+    fontSize:12, bold:true, color:C.accent, margin:0,
+  });
+  yr1.forEach((item, i) => {
+    const y = 1.48 + i*0.52;
+    const isTotal = i >= 5;
+    if (isTotal) {
+      s2.addShape(pres.shapes.RECTANGLE, {
+        x:5.15, y:y-0.02, w:4.5, h:0.45,
+        fill:{ color:'162031' }, line:{ color:C.accent, width:0.5 },
+      });
+    }
+    s2.addText(item.lbl, { x:5.25, y:y, w:2.5, h:0.42, fontSize:isTotal?12:11, bold:isTotal, color:isTotal?C.light:C.muted, valign:'middle', margin:0 });
+    s2.addText(item.val, { x:7.75, y:y, w:1.8, h:0.42, fontSize:isTotal?14:12, bold:isTotal, color:item.color, align:'right', valign:'middle', margin:0 });
+  });
+
+  // ─────────────────────────────────────────────────────
+  //  第 3 页：模型关键假设
+  // ─────────────────────────────────────────────────────
+  const s3 = pres.addSlide();
+  addBase(s3);
+  addBadge(s3, '02 假设');
+
+  s3.addText('模型关键假设', {
+    x:0.5, y:0.2, w:8, h:0.6,
+    fontSize:26, bold:true, color:C.white,
+  });
+  s3.addShape(pres.shapes.LINE, { x:0.5, y:0.82, w:9, h:0, line:{ color:C.accent, width:1.5 } });
+
+  const assumptGroups = [
+    {
+      title:'租金与出租', color: C.green, items:[
+        `初始租金：${p.rent_sqm} 元/㎡/月（含税），面积 ${p.area.toLocaleString()} ㎡`,
+        `租赁周期：${p.lease_cycle} 年/期，周期末跳涨 ${p.rent_g}%`,
+        `空置率：${p.vacancy}%（全周期固定）`,
+        `假设空置损失均匀分布，不区分季节性波动`,
+      ]
+    },
+    {
+      title:'税费假设', color: C.amber, items:[
+        `增值税率：${p.vat_rate}%（一般纳税人，租金为含税价）`,
+        `城建税：${p.city_tax}%  |  教育费附加（含地方）：${p.edu_rate}%`,
+        `房产税（出租）：从租计征，税率 ${p.rent_tax}%（基于不含税收入）`,
+        `房产税（空置）：从价计征，扣除比例 ${p.deduct}%，税率 ${p.adval}%`,
+      ]
+    },
+    {
+      title:'成本假设', color: C.purple, items:[
+        p.opex_mode==='fixed'
+          ? `期间费用：${(p.opex_fixed/1e4).toFixed(0)} 万元/年，年增长 ${p.opex_g}%`
+          : `期间费用：租金收入的 ${p.opex_pct}%，年增长 ${p.opex_g}%`,
+        p.capex_mode==='fixed'
+          ? `资本性开支（CapEx）：${(p.capex_fixed/1e4).toFixed(0)} 万元/年（固定）`
+          : `资本性开支（CapEx）：租金收入的 ${p.capex_pct}%`,
+      ]
+    },
+    {
+      title:'估值假设', color: C.teal, items:[
+        `折现率（WACC）：${p.dr}%`,
+        `持有年限：${p.years} 年`,
+        p.term_mode==='fixed'
+          ? `残值处理：期末残值 ${(p.resid/1e4).toFixed(0)} 万元，直接折现`
+          : `残值处理：Gordon 永续增长模型，永续增长率 g=${p.gg}%`,
+        `DCF 估值 = 持有期各年折现现金流之和（不扣除期初购买价格）`,
+      ]
+    },
+  ];
+
+  assumptGroups.forEach((grp, gi) => {
+    const col = gi % 2, row = Math.floor(gi / 2);
+    const x = 0.5 + col * 4.8, y = 1.0 + row * 2.35;
+    s3.addShape(pres.shapes.RECTANGLE, {
+      x, y, w:4.6, h:2.2,
+      fill:{ color:C.surf }, line:{ color:grp.color, width:1 }, shadow:makeShadow(),
+    });
+    // 左色条
+    s3.addShape(pres.shapes.RECTANGLE, {
+      x, y, w:0.06, h:2.2,
+      fill:{ color:grp.color }, line:{ color:grp.color },
+    });
+    s3.addText(grp.title, {
+      x:x+0.15, y:y+0.1, w:4.3, h:0.32,
+      fontSize:12, bold:true, color:grp.color, margin:0,
+    });
+    grp.items.forEach((txt, ti) => {
+      s3.addText('· '+txt, {
+        x:x+0.15, y:y+0.42+ti*0.42, w:4.3, h:0.38,
+        fontSize:10, color:C.light, margin:0,
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────
+  //  第 4 页：投资收益测算
+  // ─────────────────────────────────────────────────────
+  const s4 = pres.addSlide();
+  addBase(s4);
+  addBadge(s4, '03 收益');
+
+  s4.addText('投资收益测算', {
+    x:0.5, y:0.2, w:8, h:0.6,
+    fontSize:26, bold:true, color:C.white,
+  });
+  s4.addShape(pres.shapes.LINE, { x:0.5, y:0.82, w:9, h:0, line:{ color:C.accent, width:1.5 } });
+
+  // 全周期核心指标（大字展示）
+  const bigMetrics = [
+    { lbl:'全周期 IRR',  val: fmtPct(res.irr,2), sub:'内部收益率（基于原值初始投入）', color: C.green },
+    { lbl:'DCF 估值',    val: fmtBig(res.cum),   sub:'折现现金流合计（含残值）', color: C.accent },
+    { lbl:'持有期 FCF',  val: fmtBig(res.totFCF), sub:'累计自由现金流', color: C.teal },
+  ];
+  bigMetrics.forEach((m, i) => {
+    const x = 0.5 + i * 3.1;
+    s4.addShape(pres.shapes.RECTANGLE, {
+      x, y:0.95, w:2.9, h:1.3,
+      fill:{ color: C.surf }, line:{ color:m.color, width:1.5 }, shadow:makeShadow(),
+    });
+    s4.addShape(pres.shapes.RECTANGLE, { x, y:0.95, w:2.9, h:0.06, fill:{ color:m.color }, line:{ color:m.color } });
+    s4.addText(m.lbl, { x:x+0.1, y:1.04, w:2.7, h:0.28, fontSize:11, color:C.muted, margin:0 });
+    s4.addText(m.val, { x:x+0.1, y:1.28, w:2.7, h:0.55, fontSize:28, bold:true, color:m.color, margin:0 });
+    s4.addText(m.sub, { x:x+0.1, y:1.82, w:2.7, h:0.22, fontSize:9, color:C.muted, margin:0 });
+  });
+
+  // 逐年收益表（显示前10年或全部）
+  s4.addShape(pres.shapes.RECTANGLE, {
+    x:0.5, y:2.38, w:9, h:2.75,
+    fill:{ color:C.surf }, line:{ color:'2D3F55', width:1 }, shadow:makeShadow(),
+  });
+  s4.addText('逐年现金流摘要（万元）', {
+    x:0.65, y:2.46, w:5, h:0.3,
+    fontSize:12, bold:true, color:C.accent, margin:0,
+  });
+
+  const tblHeaders = [['年份','租金收入','NOI','FCF','折现CF','累计折现CF','当年回报率']];
+  const dispRows = rows.slice(0, Math.min(rows.length, 10));
+  const tblData = tblHeaders.concat(dispRows.map(r => {
+    const annualReturn = r.noi / p.orig;
+    return [
+      '第'+r.y+'年'+(r.y>1&&Math.floor((r.y-1)/p.lease_cycle)>Math.floor((r.y-2)/p.lease_cycle)?'↑':''),
+      fmt(r.gross,1),
+      fmt(r.noi,1),
+      fmt(r.fcf,1),
+      fmt(r.dcfV,1),
+      fmt(r.cum,1),
+      (annualReturn*100).toFixed(1)+'%',
+    ];
+  }));
+
+  const tblRows = tblData.map((row, ri) => row.map((cell, ci) => {
+    const isHeader = ri === 0;
+    const isName = ci === 0;
+    return {
+      text: cell,
+      options: {
+        bold: isHeader,
+        fontSize: isHeader ? 10 : 9.5,
+        color: isHeader ? C.muted : (isName ? C.light : C.white),
+        fill: { color: isHeader ? '162031' : (ri%2===0?'1B2A3D':'162A3B') },
+        align: isName ? 'left' : 'center',
+        valign: 'middle',
+      }
+    };
+  }));
+
+  s4.addTable(tblRows, {
+    x:0.55, y:2.76,
+    w:8.9,
+    border:{ pt:0.5, color:'253447' },
+    rowH: 0.3,
+  });
+
+  if (rows.length > 10) {
+    s4.addText(`… 共 ${rows.length} 年数据（表格仅展示前10年）`, {
+      x:0.65, y:5.05, w:8, h:0.25,
+      fontSize:9, color:C.muted, italic:true,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  第 5 页：压力测试（双矩阵）
+  // ─────────────────────────────────────────────────────
+  const s5 = pres.addSlide();
+  addBase(s5);
+  addBadge(s5, '04 压测');
+
+  s5.addText('压力测试', {
+    x:0.5, y:0.2, w:8, h:0.6,
+    fontSize:26, bold:true, color:C.white,
+  });
+  s5.addShape(pres.shapes.LINE, { x:0.5, y:0.82, w:9, h:0, line:{ color:C.accent, width:1.5 } });
+  s5.addText('不同租金水平 × 出租率下的投资 IRR（%）和 NPV（万元）', {
+    x:0.5, y:0.86, w:9, h:0.28,
+    fontSize:11, color:C.muted, italic:true,
+  });
+
+  // 矩阵1：IRR - 行=空置率, 列=租金水平
+  const rentMultipliers = [0.8, 0.9, 1.0, 1.1, 1.2];
+  const vacRates        = [5, 10, 15, 20, 30];
+
+  // 矩阵1: IRR
+  s5.addShape(pres.shapes.RECTANGLE, {
+    x:0.5, y:1.2, w:4.5, h:4.05,
+    fill:{ color:C.surf }, line:{ color:C.green, width:1 }, shadow:makeShadow(),
+  });
+  s5.addText('IRR 矩阵：出租率 × 租金水平', {
+    x:0.65, y:1.26, w:4.2, h:0.3,
+    fontSize:11, bold:true, color:C.green, margin:0,
+  });
+
+  const irrMatrix = vacRates.map(vac =>
+    rentMultipliers.map(rm => {
+      const pp = { ...p, vacancy:vac, rent_sqm: p.rent_sqm*rm };
+      return dcf(pp).irr;
+    })
+  );
+
+  // IRR表头
+  const irrHeaderRow = [{ text:'出租率↓ / 租金→', options:{bold:true, fontSize:9, color:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} }]
+    .concat(rentMultipliers.map(rm => ({ text: (rm*100).toFixed(0)+'%水平', options:{bold:true, fontSize:9, color:rm===1.0?C.amber:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} })));
+
+  const irrTableData = [irrHeaderRow].concat(vacRates.map((vac, vi) =>
+    [{ text:(100-vac)+'%出租'+(vac===p.vacancy?' ★':''), options:{bold:true, fontSize:9, color:vac===p.vacancy?C.amber:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} }]
+    .concat(rentMultipliers.map((rm, ri) => {
+      const val = irrMatrix[vi][ri];
+      const isBase = vac===p.vacancy && rm===1.0;
+      const v = isNaN(val)?'—':(val*100).toFixed(1)+'%';
+      const positive = !isNaN(val) && val>0.06;
+      const negative = !isNaN(val) && val<0;
+      const fg = isBase ? C.amber : (positive ? C.green : (negative ? C.red : C.white));
+      const bg = isBase ? '2A1F00' : (positive ? '0D2B1F' : (negative ? '2B0D0D' : '162031'));
+      return { text:v, options:{bold:isBase, fontSize:9.5, color:fg, fill:{color:bg}, align:'center', valign:'middle'} };
+    }))
+  ));
+
+  s5.addTable(irrTableData, {
+    x:0.55, y:1.56, w:4.4,
+    border:{ pt:0.5, color:'253447' },
+    rowH:0.52,
+  });
+
+  // 矩阵2: NPV（万元）
+  s5.addShape(pres.shapes.RECTANGLE, {
+    x:5.2, y:1.2, w:4.5, h:4.05,
+    fill:{ color:C.surf }, line:{ color:C.accent, width:1 }, shadow:makeShadow(),
+  });
+  s5.addText('NPV 矩阵：出租率 × 租金水平（万元）', {
+    x:5.35, y:1.26, w:4.2, h:0.3,
+    fontSize:11, bold:true, color:C.accent, margin:0,
+  });
+
+  const npvMatrix = vacRates.map(vac =>
+    rentMultipliers.map(rm => {
+      const pp = { ...p, vacancy:vac, rent_sqm: p.rent_sqm*rm };
+      return dcf(pp).npv;
+    })
+  );
+
+  const npvHeaderRow = [{ text:'出租率↓ / 租金→', options:{bold:true, fontSize:9, color:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} }]
+    .concat(rentMultipliers.map(rm => ({ text:(rm*100).toFixed(0)+'%水平', options:{bold:true, fontSize:9, color:rm===1.0?C.amber:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} })));
+
+  const npvTableData = [npvHeaderRow].concat(vacRates.map((vac, vi) =>
+    [{ text:(100-vac)+'%出租'+(vac===p.vacancy?' ★':''), options:{bold:true, fontSize:9, color:vac===p.vacancy?C.amber:C.muted, fill:{color:'162031'}, align:'center', valign:'middle'} }]
+    .concat(rentMultipliers.map((rm, ri) => {
+      const val = npvMatrix[vi][ri];
+      const isBase = vac===p.vacancy && rm===1.0;
+      const vW = (val/1e4).toFixed(0);
+      const positive = val>0;
+      const fg = isBase ? C.amber : (positive ? C.green : C.red);
+      const bg = isBase ? '2A1F00' : (positive ? '0D2B1F' : '2B0D0D');
+      return { text:vW, options:{bold:isBase, fontSize:9.5, color:fg, fill:{color:bg}, align:'center', valign:'middle'} };
+    }))
+  ));
+
+  s5.addTable(npvTableData, {
+    x:5.25, y:1.56, w:4.4,
+    border:{ pt:0.5, color:'253447' },
+    rowH:0.52,
+  });
+
+  // 备注
+  s5.addText('★ = 当前基准情景  |  绿色 = IRR > 6%  |  红色 = IRR < 0% 或 NPV < 0  |  矩阵租金列为基准租金的80%/90%/100%/110%/120%', {
+    x:0.5, y:5.35, w:9.5, h:0.27,
+    fontSize:8.5, color:C.muted, align:'center', italic:true, margin:0,
+  });
+
+  // ── 生成并下载 ──
+  const fname = `不动产投资分析_${new Date().toISOString().slice(0,10)}.pptx`;
+  pres.writeFile({ fileName: fname })
+    .then(() => console.log('PPT exported:', fname))
+    .catch(e => alert('导出失败：'+e.message));
+}
 </script>
 </body>
 </html>
