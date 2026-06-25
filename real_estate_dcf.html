@@ -676,6 +676,10 @@ function run() {
   renderTable(res.rows);
   renderCharts(res.rows, p);
   renderSens(p, res);
+  // 保存最新结果供 PPT 导出使用
+  _lastRes = res;
+  _lastP = p;
+  document.getElementById('pptBtn').style.display = '';
 }
 
 // ─── KPI ───
@@ -942,16 +946,6 @@ window.onload = () => run();
 //  导出 PPT（结论先行，5页结构）
 // ══════════════════════════════════════════════════════
 let _lastRes = null, _lastP = null;
-
-// 覆盖 run，保存最新结果
-const _origRun = run;
-function run() {
-  _origRun();
-  const p = getP();
-  _lastRes = dcf(p);
-  _lastP = p;
-  document.getElementById('pptBtn').style.display = '';
-}
 
 function exportPPT() {
   if (!_lastRes || !_lastP) { alert('请先运行 DCF 模型'); return; }
